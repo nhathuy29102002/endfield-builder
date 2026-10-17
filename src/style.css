@@ -3508,3 +3508,21 @@ button.kb-chip:hover { border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .rl-lim-body, .rl-lim-h, .rl-lim-v { transition: none; } }
 /* điện thoại: nút quay lại của thư viện vẫn ở bên phải (người dùng 2026-10-16) */
 html.touch-ui .rl-back { order: 10; }
+/* hàng nút cuối Cài đặt — rê chuột (người dùng 2026-10-17): Android xanh lá, Windows 4 màu, GitHub nền trắng, bức thư mở */
+a.set-dl { transition: color 0.18s, background-color 0.18s, border-color 0.18s; }
+a.set-dl svg path, a.set-dl svg rect { transition: fill 0.18s, stroke 0.18s, transform 0.28s ease, opacity 0.2s; }
+a.set-dl.dl-android:hover { color: #3ddc84; border-color: #3ddc84; }
+a.set-dl.dl-windows:hover { border-color: #00a4ef; }
+a.set-dl.dl-windows:hover .w1 { fill: #f25022; }
+a.set-dl.dl-windows:hover .w2 { fill: #7fba00; }
+a.set-dl.dl-windows:hover .w3 { fill: #00a4ef; }
+a.set-dl.dl-windows:hover .w4 { fill: #ffb900; }
+a.set-dl.dl-github:hover { background: #fff; color: #1f2328; border-color: #fff; }
+/* bức thư: nắp lật lên (lật quanh mép trên), lá thư nhô ra */
+a.set-mail svg { overflow: visible; }
+a.set-mail .m-flap { transform-origin: 12px 7px; }
+a.set-mail .m-letter { opacity: 0; fill: var(--panel); }
+a.set-mail:hover { color: #e8c547; border-color: #e8c547; }
+a.set-mail:hover .m-flap { transform: scaleY(-1); }
+a.set-mail:hover .m-letter { opacity: 1; transform: translateY(-5px); }
+@media (prefers-reduced-motion: reduce) { a.set-dl svg path, a.set-dl svg rect { transition: none; } }

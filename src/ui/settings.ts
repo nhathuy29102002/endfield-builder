@@ -10,7 +10,7 @@ const GEAR =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
 /** Biểu tượng nút tải app (người dùng 2026-10-07: dùng biểu tượng thay cho chữ). */
 const WINDOWS_ICON =
-  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.6 10.4 4.6v7H3zM11.4 4.4 21 3v8.6h-9.6zM3 12.4h7.4v7L3 18.4zM11.4 12.4H21V21l-9.6-1.4z"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path class="w1" d="M3 5.6 10.4 4.6v7H3z"/><path class="w2" d="M11.4 4.4 21 3v8.6h-9.6z"/><path class="w3" d="M3 12.4h7.4v7L3 18.4z"/><path class="w4" d="M11.4 12.4H21V21l-9.6-1.4z"/></svg>';
 const ANDROID_ICON =
   '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2.6 18.6a9.4 9.4 0 0 1 18.8 0zM7.3 15.2a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0zM14.5 15.2a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0z"/><path d="M7.4 10.6 5.6 7.4M16.6 10.6l1.8-3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 /**
@@ -27,7 +27,7 @@ function feedbackUrl(): string {
 
 /** Bức thư — nút gửi góp ý (người dùng 2026-10-16). */
 const MAIL_ICON =
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.8 7 8.2 6.2L20.2 7" stroke-linecap="round"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect class="m-letter" x="6.5" y="8.5" width="11" height="8" rx="1"/><rect class="m-body" x="3" y="5.5" width="18" height="13" rx="2"/><path class="m-flap" d="M3.8 7 12 13.2 20.2 7"/></svg>';
 const GITHUB_ICON =
   '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
 /** Đã mở bảng Cài đặt lần nào chưa — chưa ⇒ chấm đỏ trên bánh răng (người dùng 2026-10-07). */
@@ -176,8 +176,8 @@ export function mountSettings(root: HTMLElement, onTheme: () => void, extraRows?
   const appRow = (): HTMLElement => {
     const inApp = '__TAURI_INTERNALS__' in window || isNativeApp();
     // nút biểu tượng Windows / Android / GitHub thay cho chữ (người dùng 2026-10-07)
-    const link = (href: string, icon: string, title: string): HTMLElement => {
-      const a = el('a', { class: 'tool small set-dl', href, target: '_blank', rel: 'noopener', title, 'aria-label': title });
+    const link = (href: string, icon: string, title: string, kind: string): HTMLElement => {
+      const a = el('a', { class: `tool small set-dl dl-${kind}`, href, target: '_blank', rel: 'noopener', title, 'aria-label': title });
       a.innerHTML = icon;
       return a;
     };
@@ -211,9 +211,9 @@ export function mountSettings(root: HTMLElement, onTheme: () => void, extraRows?
               : [
                   // chấm đỏ ở góc trái trên chữ "T" (người dùng 2026-10-07)
                   el('span', { class: 'set-dl-head' }, ping('set-ping-dl'), tr('Tải app:')),
-                  link(DOWNLOAD.windows, WINDOWS_ICON, tr('Tải bộ cài Windows (.exe) bản mới nhất')),
-                  link(DOWNLOAD.android, ANDROID_ICON, tr('Tải app Android (.apk) bản mới nhất')),
-                  link(RELEASES_URL, GITHUB_ICON, tr('Trang các bản phát hành trên GitHub')),
+                  link(DOWNLOAD.windows, WINDOWS_ICON, tr('Tải bộ cài Windows (.exe) bản mới nhất'), 'windows'),
+                  link(DOWNLOAD.android, ANDROID_ICON, tr('Tải app Android (.apk) bản mới nhất'), 'android'),
+                  link(RELEASES_URL, GITHUB_ICON, tr('Trang các bản phát hành trên GitHub'), 'github'),
                 ]),
           )
         : null,
