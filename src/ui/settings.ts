@@ -2,7 +2,7 @@ import { LOCALES, lang, setLang, tr } from '../i18n';
 import { el } from './dom';
 import { applyTheme, currentTheme, type Theme } from './theme';
 import { prefs, setPref } from './prefs';
-import { APP_VERSION, DOWNLOAD, FEEDBACK_EMAIL, FEEDBACK_FORM, RELEASES_URL } from '../buildFlags';
+import { APP_VERSION, DOWNLOAD, FEEDBACK_EMAIL, FEEDBACK_FIELDS, FEEDBACK_FORM, RELEASES_URL } from '../buildFlags';
 import { isNativeApp } from '../platform';
 import { openKeybinds } from './keybindsDialog';
 
@@ -13,6 +13,18 @@ const WINDOWS_ICON =
   '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.6 10.4 4.6v7H3zM11.4 4.4 21 3v8.6h-9.6zM3 12.4h7.4v7L3 18.4zM11.4 12.4H21V21l-9.6-1.4z"/></svg>';
 const ANDROID_ICON =
   '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2.6 18.6a9.4 9.4 0 0 1 18.8 0zM7.3 15.2a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0zM14.5 15.2a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0z"/><path d="M7.4 10.6 5.6 7.4M16.6 10.6l1.8-3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+/**
+ * Đường dẫn biểu mẫu góp ý **điền sẵn** phiên bản + thiết bị (người dùng 2026-10-17): app Windows (Tauri) ⇒ `PC`, app
+ * Android ⇒ `Android`, bản web trên điện thoại / máy tính bảng ⇒ `Web - Android`, bản web trên máy tính ⇒ `Web - PC`.
+ */
+function feedbackUrl(): string {
+  const tauri = '__TAURI_INTERNALS__' in window;
+  const mobileWeb = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || document.documentElement.classList.contains('touch-ui');
+  const device = tauri ? 'PC' : isNativeApp() ? 'Android' : mobileWeb ? 'Web - Android' : 'Web - PC';
+  const q = new URLSearchParams({ usp: 'pp_url', [FEEDBACK_FIELDS.version]: `v${APP_VERSION}`, [FEEDBACK_FIELDS.device]: device });
+  return `${FEEDBACK_FORM}?${q}`;
+}
+
 /** Bức thư — nút gửi góp ý (người dùng 2026-10-16). */
 const MAIL_ICON =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.8 7 8.2 6.2L20.2 7" stroke-linecap="round"/></svg>';
@@ -175,7 +187,7 @@ export function mountSettings(root: HTMLElement, onTheme: () => void, extraRows?
         class: 'tool small set-dl set-mail',
         href: FEEDBACK_EMAIL
           ? `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(tr('Góp ý AIC Builder v{0}', APP_VERSION))}`
-          : `${FEEDBACK_FORM}&version=${encodeURIComponent(`v${APP_VERSION}`)}`,
+          : feedbackUrl(),
         target: '_blank',
         rel: 'noopener',
         title: FEEDBACK_EMAIL ? tr('Gửi góp ý / báo lỗi qua email') : tr('Gửi góp ý / báo lỗi (biểu mẫu)'),

@@ -18,12 +18,19 @@ export const APP_VERSION: string = typeof __APP_VERSION__ === 'string' ? __APP_V
  */
 export const REPO = 'nhathuy29102002/endfield-builder';
 /**
- * **Góp ý** (người dùng 2026-10-16): nút hình bức thư cạnh "Tải app" trong Cài đặt mở **biểu mẫu góp ý** trên GitHub
- * (`.github/ISSUE_TEMPLATE/feedback.yml` — người gửi không cần biết email của chủ repo). `FEEDBACK_EMAIL` khác rỗng ⇒
- * nút mở trình gửi thư tới địa chỉ đó thay cho biểu mẫu (địa chỉ sẽ hiện công khai).
+ * **Góp ý** (người dùng 2026-10-17): nút hình bức thư cạnh "Tải app" trong Cài đặt mở **biểu mẫu Google** của chủ app —
+ * người gửi không cần tài khoản, không thấy email của chủ app. App **tự điền sẵn** phiên bản và thiết bị đang dùng
+ * (`FEEDBACK_FIELDS` = mã câu hỏi trong biểu mẫu; đổi câu hỏi trên Google thì mã đổi ⇒ lấy lại ở "Lấy đường liên kết được
+ * điền sẵn"). `FEEDBACK_EMAIL` khác rỗng ⇒ nút mở trình gửi thư tới địa chỉ đó thay cho biểu mẫu.
  */
 export const FEEDBACK_EMAIL = '';
-export const FEEDBACK_FORM = `https://github.com/${REPO}/issues/new?template=feedback.yml`;
+export const FEEDBACK_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSd6E6U6hNOdnaWw10vWLNYdLZlVUiLBJ5gyoQvaDevSgICeAA/viewform';
+export const FEEDBACK_FIELDS = {
+  /** "Bạn hiện đang dùng phiên bản nào ?" — trả lời ngắn */
+  version: 'entry.1020243085',
+  /** "Thiết bị sử dụng" — ô tích: `Web - Android` · `Web - PC` · `PC` · `Android` */
+  device: 'entry.1004082783',
+};
 export const RELEASES_URL = `https://github.com/${REPO}/releases/latest`;
 export const DOWNLOAD = {
   /** Bộ cài Windows (NSIS). */
