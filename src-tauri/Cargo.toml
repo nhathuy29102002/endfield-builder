@@ -1,6 +1,6 @@
 [package]
 name = "endfield-planner"
-version = "0.4.3"
+version = "0.4.4"
 description = "Endfield AIC Planner — bản ứng dụng máy tính (Tauri)"
 authors = ["Endfield AIC Planner"]
 license = ""
