@@ -91,7 +91,8 @@ export function mountInspector(root: HTMLElement, state: AppState, onLayout: () 
   const body = el('div', { class: 'panel-body' });
   window.addEventListener(TOGGLE_MACHINE_WINDOW, () => {
     if (root.hidden || root.classList.contains('mw-closing')) return;
-    root.querySelector<HTMLElement>(collapsed ? '.mw-mini' : '.mw-collapse')?.click();
+    // đang là icon nhỏ (thu gọn, hoặc tạm thu nhỏ lúc nhấc thả) ⇒ mở rộng; đang mở ⇒ thu gọn
+    root.querySelector<HTMLElement>('.mw-mini, .mw-collapse')?.click();
   });
 
   const render = (): void => {
@@ -107,6 +108,9 @@ export function mountInspector(root: HTMLElement, state: AppState, onLayout: () 
    */
   const ANIM_MS = 220;
   let closeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Trong lúc nhấc thả: cửa sổ đang là icon nhỏ (`mini`) hay người dùng đã mở rộng (`open`); `null` = không nhấc. */
+  let liftView: 'mini' | 'open' | null = null;
+  let shrinkTimer: ReturnType<typeof setTimeout> | null = null;
   const reduced = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   /** Chạy một animation CSS một lần trên cửa sổ (bỏ lớp cũ, ép vẽ lại, gắn lớp mới). */
   const playOnce = (cls: string): void => {
@@ -132,7 +136,33 @@ export function mountInspector(root: HTMLElement, state: AppState, onLayout: () 
     // chỉ hiện khi đang chọn đúng một máy (và không đang cầm máy đi): di chuyển / sao chép / dán mà cửa sổ còn mở thì
     // nó che mất góc phải dưới bản vẽ — bấm đặt máy ở đó rơi vào cửa sổ (người dùng 2026-10-02: "copy van không đặt
     // lên băng được")
-    const holding = state.tool.kind === 'place' || state.tool.kind === 'group' || state.tool.kind === 'stamp';
+    const t = state.tool;
+    // **nhấc thả** (giữ chuột / ngón tay trên máy rồi rê — người dùng 2026-10-26): cửa sổ không đóng mà **thu nhỏ** thành
+    // icon (có animation); bấm icon / F2 trong lúc nhấc ⇒ mở rộng như thường. Thả xuống ⇒ theo chế độ thu gọn đang lưu.
+    const lift = !!m && !!def && (t.kind === 'group' || t.kind === 'place') && t.drag === true;
+    if (!lift) liftView = null;
+    if (lift && shrinkTimer) return; // đang thu nhỏ dần: giữ nội dung cũ tới khi xong
+    if (lift && liftView === null) {
+      liftView = collapsed ? 'open' : 'mini';
+      const full = !root.hidden && !closeTimer && !root.classList.contains('collapsed');
+      if (liftView === 'mini' && full && !reduced()) {
+        root.classList.remove('mw-opening', 'mw-grow', 'mw-pop');
+        root.classList.add('mw-shrink');
+        shrinkTimer = setTimeout(() => {
+          shrinkTimer = null;
+          root.classList.remove('mw-shrink');
+          render();
+          playOnce('mw-pop');
+        }, ANIM_MS);
+        return;
+      }
+    }
+    const holding = !lift && (t.kind === 'place' || t.kind === 'group' || t.kind === 'stamp');
+    if (shrinkTimer && !lift) {
+      clearTimeout(shrinkTimer);
+      shrinkTimer = null;
+      root.classList.remove('mw-shrink');
+    }
     if (!m || !def || holding) {
       if (root.hidden || closeTimer) return;
       root.classList.remove('mw-opening');
@@ -142,6 +172,9 @@ export function mountInspector(root: HTMLElement, state: AppState, onLayout: () 
       return;
     }
     const opening = root.hidden || closeTimer !== null;
+    const mini = collapsed || (lift && liftView === 'mini');
+    // vừa thả máy nhấc lên (đang icon nhỏ) mà chế độ lưu là mở rộng ⇒ nở ra như bấm icon
+    const regrow = !mini && !opening && root.classList.contains('collapsed');
     if (closeTimer) {
       clearTimeout(closeTimer);
       closeTimer = null;
@@ -162,8 +195,10 @@ export function mountInspector(root: HTMLElement, state: AppState, onLayout: () 
     const mN = m;
     const icon = (): HTMLImageElement => el('img', { class: 'mw-icon', src: `img/items/${def.icon}.png`, alt: '' });
 
-    root.classList.toggle('collapsed', collapsed);
-    if (collapsed) {
+    root.classList.toggle('collapsed', mini);
+    if (regrow) playOnce('mw-grow');
+    else if (mini && opening && lift) playOnce('mw-pop');
+    if (mini) {
       root.append(
         el(
           'button',
@@ -173,6 +208,7 @@ export function mountInspector(root: HTMLElement, state: AppState, onLayout: () 
             onclick: () => {
               collapsed = false;
               saveCollapsed(false);
+              if (liftView) liftView = 'open';
               render();
               // mở ra: cửa sổ nở từ góc phải dưới (chỗ icon thu gọn) — người dùng 2026-09-29
               playOnce('mw-grow');

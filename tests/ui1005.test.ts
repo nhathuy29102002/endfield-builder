@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVATOR_GLOW, PIPE_OUT_COLORS, portGlowColor } from '../src/render/portColors';
+import { ACTIVATOR_GLOW, PIPE_IN_GLOW, PIPE_OUT_COLORS, portGlowColor } from '../src/render/portColors';
 import { layoutIcons } from '../src/ui/simChart';
-import type { PortKey } from '../src/model/types';
+import { activePorts, type PortKey } from '../src/model/types';
 import { ds } from './helpers';
 
-describe('dải sáng ở ô kề cổng (người dùng 2026-10-05)', () => {
+describe('dải sáng ở ô kề cổng (người dùng 2026-10-05; luật đổi 2026-10-26)', () => {
   it('cổng ra ống của Lò Phản Ứng / Lò Mở Rộng / Quả Cầu Phản Ứng Khí / Máy Tinh Chế: đúng màu vàng / cam của cổng', () => {
     for (const id of ['mix_pool_1', 'mix_pool_2', 'gas_reactor_1', 'liquid_purifier_1', 'transmuter_1', 'transmuter_2']) {
       const def = ds.machines.get(id)!;
@@ -12,19 +12,41 @@ describe('dải sáng ở ô kề cổng (người dùng 2026-10-05)', () => {
       expect(outs.length, id).toBe(2);
       expect(portGlowColor(def, `out${outs[0]!.index}`), id).toBe(PIPE_OUT_COLORS[0]);
       expect(portGlowColor(def, `out${outs[1]!.index}`), id).toBe(PIPE_OUT_COLORS[1]);
-      // cổng ra băng / cổng vào: không có dải
-      for (const p of def.ports)
-        if (!(p.dir === 'out' && p.kind === 'pipe') && `${p.dir}${p.index}` !== def.activatorPort)
-          expect(portGlowColor(def, `${p.dir}${p.index}` as PortKey), `${id} ${p.dir}${p.index}`).toBeUndefined();
+      // cổng băng: không có dải. Luật đổi 2026-10-26: cổng **ống vào** (trừ kích hoạt) của chế độ đang bật có dải trắng
+      for (const p of activePorts(def)) {
+        const key = `${p.dir}${p.index}` as PortKey;
+        if (key === def.activatorPort) continue;
+        if (p.kind === 'belt') expect(portGlowColor(def, key), `${id} ${key}`).toBeUndefined();
+        else if (p.dir === 'in') expect(portGlowColor(def, key), `${id} ${key}`).toBe(PIPE_IN_GLOW);
+      }
     }
   });
-  it('cổng kích hoạt của máy cần chất kích hoạt: xanh lá; máy khác không có', () => {
+  it('cổng kích hoạt của máy cần chất kích hoạt: xanh lá', () => {
     for (const def of ds.machines.values())
       if (def.activatorPort) expect(portGlowColor(def, def.activatorPort), def.id).toBe(ACTIVATOR_GLOW);
     expect(portGlowColor(ds.machines.get('transmuter_1')!, 'in2')).toBe(ACTIVATOR_GLOW);
-    // không kể trong danh sách ⇒ cổng ra ống không có dải (dù có màu vàng / cam ở mũi tên)
-    expect(portGlowColor(ds.machines.get('udpipe_unloader_2')!, 'out0')).toBeUndefined();
-    expect(portGlowColor(ds.machines.get('furnance_1')!, 'out0')).toBeUndefined();
+  });
+  it('2026-10-26: mọi máy — ống vào trắng; một đầu ống ra ⇒ cam, hai đầu ⇒ vàng / cam; van / cầu và cổng băng thì không', () => {
+    expect(portGlowColor(ds.machines.get('udpipe_unloader_2')!, 'out0')).toBe(PIPE_OUT_COLORS[0]);
+    expect(portGlowColor(ds.machines.get('udpipe_unloader_2')!, 'out1')).toBe(PIPE_OUT_COLORS[1]);
+    expect(portGlowColor(ds.machines.get('pump_1')!, 'out0')).toBe(PIPE_OUT_COLORS[1]);
+    expect(portGlowColor(ds.machines.get('liquid_storager_1')!, 'in0')).toBe(PIPE_IN_GLOW);
+    expect(portGlowColor(ds.machines.get('liquid_storager_1')!, 'out0')).toBe(PIPE_OUT_COLORS[1]);
+    expect(portGlowColor(ds.machines.get('furnance_1')!, 'out0')).toBeUndefined(); // cổng băng
+    expect(portGlowColor(ds.machines.get('log_pipe_splitter')!, 'out0')).toBeUndefined();
+    expect(portGlowColor(ds.machines.get('log_pipe_connector')!, 'in0')).toBeUndefined();
+    // cổng ảo (đẩy thẳng vào máy kề) không có dải
+    expect(portGlowColor(ds.machines.get('pump_1')!, 'out1')).toBeUndefined();
+  });
+  it('máy đổi chế độ rắn ⇄ lỏng: dải theo bộ cổng của chế độ đang bật', () => {
+    const def = [...ds.machines.values()].find((d) => d.modePorts && d.ports.some((p) => p.kind === 'pipe' && p.dir === 'in'))!;
+    expect(def, 'có máy đổi bộ cổng theo chế độ').toBeTruthy();
+    const pipeIn = def.ports.find((p) => p.kind === 'pipe' && p.dir === 'in')!;
+    const key = `in${pipeIn.index}` as PortKey;
+    const on = (['A', 'B'] as const).filter((m) => activePorts(def, m).includes(pipeIn));
+    const off = (['A', 'B'] as const).filter((m) => !activePorts(def, m).includes(pipeIn));
+    for (const m of on) expect(portGlowColor(def, key, m), `${def.id} ${m}`).toBe(PIPE_IN_GLOW);
+    for (const m of off) expect(portGlowColor(def, key, m), `${def.id} ${m}`).toBeUndefined();
   });
 });
 

@@ -15,10 +15,12 @@ beforeEach(() => {
 });
 
 describe('phím tắt tuỳ chỉnh', () => {
-  it('phím mặc định: M = mô phỏng, G = di chuyển (Map), Ctrl+Shift+S = thư viện, Ctrl+S không lẫn', async () => {
+  // Luật đổi 2026-10-26: M ⇄ G (M = di chuyển, G = mô phỏng); checklist Ctrl → Shift (Ctrl trùng nhiều tổ hợp quá)
+  it('phím mặc định: G = mô phỏng, M = di chuyển (Map), Ctrl+Shift+S = thư viện, Ctrl+S không lẫn', async () => {
     const kb = await import('../src/keybinds');
-    expect(kb.actionOf(kev('KeyM', 'm'), ['map', 'general'])).toBe('map.sim');
-    expect(kb.actionOf(kev('KeyG', 'g'), ['map', 'general'])).toBe('map.move');
+    expect(kb.actionOf(kev('KeyG', 'g'), ['map', 'general'])).toBe('map.sim');
+    expect(kb.actionOf(kev('KeyM', 'm'), ['map', 'general'])).toBe('map.move');
+    expect(kb.actionOf(kev('KeyP', 'p'), ['map', 'general'])).toBe('map.power');
     expect(kb.actionOf(kev('KeyM', 'm'), ['modeler', 'general'])).toBe('md.move');
     expect(kb.actionOf(kev('KeyS', 's', { ctrlKey: true, shiftKey: true }), ['general'])).toBe('library');
     expect(kb.actionOf(kev('KeyS', 's', { ctrlKey: true }), ['general'])).toBe('save');
@@ -26,8 +28,10 @@ describe('phím tắt tuỳ chỉnh', () => {
     expect(kb.actionOf(kev('KeyF', 'f'), ['modeler'])).toBe('md.fit');
     expect(kb.matches('tutNext', kev('Enter', 'Enter'))).toBe(true);
     expect(kb.matches('machineWin', kev('F2', 'F2'))).toBe(true);
-    // Ctrl một mình (checklist); W khớp cả khi giữ Shift (di chuyển bản đồ)
-    expect(kb.matches('checklist', kev('ControlLeft', 'Control', { ctrlKey: true }))).toBe(true);
+    // Shift một mình (checklist) — Shift bấm lúc đang giữ Ctrl (Ctrl+Shift+Z) thì không; W khớp cả khi giữ Shift
+    expect(kb.matches('checklist', kev('ShiftLeft', 'Shift', { shiftKey: true }))).toBe(true);
+    expect(kb.matches('checklist', kev('ShiftLeft', 'Shift', { shiftKey: true, ctrlKey: true }))).toBe(false);
+    expect(kb.matches('checklist', kev('ControlLeft', 'Control', { ctrlKey: true }))).toBe(false);
     expect(kb.matches('map.up', kev('KeyW', 'w', { shiftKey: true }))).toBe(true);
     // bộ gõ tiếng Việt: "ư" do Unikey gửi = phím W
     expect(kb.matches('map.up', kev('', 'ư'))).toBe(true);
@@ -40,15 +44,15 @@ describe('phím tắt tuỳ chỉnh', () => {
 
   it('đổi phím: lưu phần khác mặc định, báo trùng, sự kiện do app gửi vẫn nhận phím mặc định', async () => {
     const kb = await import('../src/keybinds');
-    kb.setBinding('map.move', 0, { key: 'm' });
-    expect(JSON.parse(ls.get('efp:keybinds')!)['map.move'][0]).toEqual({ key: 'm' });
-    expect(kb.conflictsOf('map.move', { key: 'm' }).map((a) => a.id)).toEqual(['map.sim']);
-    expect(kb.keyLabel('map.move')).toBe('M');
-    // phím G thật không còn là di chuyển; nút trên màn hình gửi phím mặc định (isTrusted = false) thì vẫn nhận
-    expect(kb.matches('map.move', kev('KeyG', 'g'))).toBe(false);
-    expect(kb.matches('map.move', kev('KeyG', 'g', { isTrusted: false }))).toBe(true);
-    // về lại mặc định ⇒ không còn lưu gì cho thao tác đó
     kb.setBinding('map.move', 0, { key: 'g' });
+    expect(JSON.parse(ls.get('efp:keybinds')!)['map.move'][0]).toEqual({ key: 'g' });
+    expect(kb.conflictsOf('map.move', { key: 'g' }).map((a) => a.id)).toEqual(['map.sim']);
+    expect(kb.keyLabel('map.move')).toBe('G');
+    // phím M thật không còn là di chuyển; nút trên màn hình gửi phím mặc định (isTrusted = false) thì vẫn nhận
+    expect(kb.matches('map.move', kev('KeyM', 'm'))).toBe(false);
+    expect(kb.matches('map.move', kev('KeyM', 'm', { isTrusted: false }))).toBe(true);
+    // về lại mặc định ⇒ không còn lưu gì cho thao tác đó
+    kb.setBinding('map.move', 0, { key: 'm' });
     expect(JSON.parse(ls.get('efp:keybinds')!)).toEqual({});
     // bỏ phím ⇒ thao tác chưa gán thì chú thích không có ngoặc
     kb.setBinding('map.labels', 0, null);

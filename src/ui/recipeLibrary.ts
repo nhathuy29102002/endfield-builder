@@ -692,7 +692,7 @@ export function openRecipeLibrary(state: AppState, start?: LibraryTarget): void 
         const next = new Set(path).add(n.item);
         if (env !== 'None' && opened.has(mk) && envOpen.has(n.key)) {
           const g = Object.keys(ENV_GASES).find((x) => ENV_GASES[x] === env);
-          if (g && !next.has(g)) {
+          if (g) {
             // Máy Khuếch Tán (khí → môi trường) đứng trên máy cần môi trường, chuỗi làm khí ở bên trái nó
             // (người dùng 2026-10-13)
             const make = DIFFUSE[env]!;
@@ -707,7 +707,10 @@ export function openRecipeLibrary(state: AppState, start?: LibraryTarget): void 
         let actRef: Rec | null = null;
         const wayMachine = n.way.kind === 'recipe' ? n.way.recipe.machineId : null;
         const act = wayMachine && wayMachine !== ENV_MACHINE ? ACTIVATOR[wayMachine]?.[0] : undefined;
-        if (act && opened.has(mk) && actOpen.has(n.key) && !next.has(act)) {
+        // chất kích hoạt đã có trên đường đi (vd. Khí Xiranite: Máy Chuyển Hoá Khí Rắn làm ra nó lại cần chính nó kích
+        // hoạt) ⇒ vẫn hiện — `buildChain` trả nút "vòng lặp" chỉ có ô vật phẩm (trước 2026-10-26 bấm hộp kích hoạt không
+        // hiện gì — người dùng báo)
+        if (act && opened.has(mk) && actOpen.has(n.key)) {
           const sub = place(buildChain(ds, act, `${n.key}@act/${act}`, next), col, r, next, true);
           actRef = sub.ref;
           r += sub.used;

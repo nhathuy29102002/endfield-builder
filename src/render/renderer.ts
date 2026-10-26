@@ -824,7 +824,7 @@ export class Renderer {
       if (!def || !hasPortGlow(def)) continue;
       for (const p of worldPorts(m, def)) {
         if (p.virtual) continue;
-        const color = portGlowColor(def, p.key);
+        const color = portGlowColor(def, p.key, m.mode);
         if (!color) continue;
         const { sx, sy } = camera.toScreen(p.attach);
         if (sx + c < 0 || sy + c < 0 || sx > view.w || sy > view.h) continue;
@@ -1086,7 +1086,7 @@ export class Renderer {
     // tên riêng lẻ (người dùng 2026-10-05: chọn vùng nhiều máy bị lag)
     if ((selected || this.placing()) && camera.cell >= 8)
       for (const port of worldPorts(m, def))
-        if (!port.virtual) this.arrowQueue.push({ cell: port.attach, flow: port.flow, kind: port.kind, color: pipeOutColor(def, port.key) ?? '#e6f7ff' });
+        if (!port.virtual) this.arrowQueue.push({ cell: port.attach, flow: port.flow, kind: port.kind, color: pipeOutColor(def, port.key, m.mode) ?? '#e6f7ff' });
 
     // vòng icon trên cửa ra của máy xuất hàng — vẽ sau lớp chọn để không bị phủ xanh
     this.drawOutletBadges(m, def, flow);
@@ -1173,7 +1173,7 @@ export class Renderer {
         ctx.fillStyle = 'rgba(244,246,248,0.94)';
         ctx.fill();
         ctx.lineWidth = Math.max(1, r * 0.12);
-        ctx.strokeStyle = port.kind === 'pipe' ? (pipeOutColor(def, port.key) ?? '#3aa0e8') : '#e8912d';
+        ctx.strokeStyle = port.kind === 'pipe' ? (pipeOutColor(def, port.key, m.mode) ?? '#3aa0e8') : '#e8912d';
         ctx.stroke();
         if (icon) {
           const size = r * 1.5;
@@ -1697,7 +1697,7 @@ export class Renderer {
       if (chain.kind !== 'pipe' || !chain.from || chain.tiles.length === 0) continue;
       const m = s.bp.machines.find((v) => v.uid === chain.from!.uid);
       const def = m ? s.ds.machines.get(m.machineId) : undefined;
-      const color = def ? pipeOutColor(def, chain.from.portKey) : undefined;
+      const color = def && m ? pipeOutColor(def, chain.from.portKey, m.mode) : undefined;
       if (color) map.set(chain.tiles[0]!, color);
     }
     this.outMarks = { result: s.result, map };
@@ -2034,7 +2034,7 @@ export class Renderer {
       const probe: PlacedMachine = { uid: -1, machineId: def.id, x, z, rot: tool.rot, recipeId: null, binding: {}, count: 1, mode: tool.machineMode };
       for (const port of worldPorts(probe, def)) {
         if (port.virtual) continue;
-        this.drawPortArrow(port.attach, port.flow, port.kind, pipeOutColor(def, port.key));
+        this.drawPortArrow(port.attach, port.flow, port.kind, pipeOutColor(def, port.key, tool.machineMode));
       }
     }
 
@@ -2122,7 +2122,7 @@ export class Renderer {
       this.drawAuraPreview(def, { ...e.src, x: e.x, z: e.z, rot: e.rot, mode }, tool.kind === 'group' ? e.src.uid : undefined);
       if (camera.cell >= 8) {
         for (const port of worldPorts({ ...e.src, x: e.x, z: e.z, rot: e.rot, mode }, def)) {
-          if (!port.virtual) this.drawPortArrow(port.attach, port.flow, port.kind, pipeOutColor(def, port.key));
+          if (!port.virtual) this.drawPortArrow(port.attach, port.flow, port.kind, pipeOutColor(def, port.key, mode));
         }
       }
     }

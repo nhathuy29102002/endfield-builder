@@ -310,6 +310,14 @@ export function rotateSelection(state: AppState): void {
 }
 
 /** Bật/tắt biển tên máy trên bản vẽ — nhiều máy sát nhau thì tên che mất hình. */
+/** Bật / tắt kiểm tra tầm điện (nút ⚡ trên thanh công cụ, phím P — người dùng 2026-10-26). */
+export function togglePowerCheck(state: AppState): void {
+  state.mutate(tr('Đổi kiểm tra điện'), () => {
+    state.bp.enforcePower = state.bp.enforcePower === false;
+    state.message = state.bp.enforcePower ? tr('Kiểm tra tầm điện: BẬT') : tr('Kiểm tra tầm điện: TẮT');
+  });
+}
+
 export function toggleLabels(state: AppState, renderer: Renderer): void {
   renderer.showLabels = !renderer.showLabels;
   saveLabelSetting(renderer.showLabels);

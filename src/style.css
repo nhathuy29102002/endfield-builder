@@ -3480,8 +3480,7 @@ button.kb-chip:hover { border-color: var(--accent); }
   display: inline-block; padding: 1px 6px; border-radius: 4px; background: #39e75f; color: #06210d;
   font: 800 9.5px/15px system-ui, sans-serif; letter-spacing: 0.6px; white-space: nowrap; vertical-align: middle;
 }
-.recipe-card.limited { position: relative; }
-.recipe-card.limited > .rc-limited { position: absolute; top: 4px; right: 4px; z-index: 1; }
+.rc-side > .rc-limited { flex: none; }
 .rl-card-head .rc-limited { margin-left: 6px; flex: none; }
 /* thẻ LIMITED cạnh tên mục "Vật phẩm phức hợp giới hạn" */
 .rl-win-head .rc-limited, .ip-section .rc-limited, .rl-sub .rc-limited { margin-left: 8px; }

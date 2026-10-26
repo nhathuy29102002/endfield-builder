@@ -315,6 +315,27 @@ export function attachMapTouch(canvas: HTMLCanvasElement, state: AppState, rende
     return true;
   };
 
+  /**
+   * Tự cuộn sát mép (người dùng 2026-10-26): ngón tay đang rê preview / khung chọn ở `p` ⇒ báo `input.ts`; bản đồ trôi
+   * dưới ngón tay đứng yên thì preview / khung bám theo ô mới dưới ngón tay.
+   */
+  const follow = (p: Pt | null): void => {
+    if (!p) return input.edgeFollow(null);
+    input.edgeFollow({
+      x: p.x,
+      y: p.y,
+      after: () => {
+        if (!g) return input.edgeFollow(null);
+        const c = cellAt(p);
+        if (g.mode === 'preview' && g.base) input.pointAt({ x: g.base.x + c.x - g.startCell.x, z: g.base.z + c.z - g.startCell.z });
+        else if (g.mode === 'box' && renderer.box) {
+          renderer.box = { a: renderer.box.a, b: c };
+          state.emit('view');
+        }
+      },
+    });
+  };
+
   canvas.addEventListener(
     'touchstart',
     (e) => {
@@ -322,6 +343,7 @@ export function attachMapTouch(canvas: HTMLCanvasElement, state: AppState, rende
       const ts = e.touches;
       if (ts.length >= 2) {
         if (g && g.mode === 'forward') return;
+        follow(null);
         if (g) {
           clearTimer();
           if (g.mode === 'box') endBox(false);
@@ -455,6 +477,7 @@ export function attachMapTouch(canvas: HTMLCanvasElement, state: AppState, rende
           mouse('mousemove', p);
           break;
       }
+      follow(g.mode === 'preview' || g.mode === 'box' ? p : null);
       g.last = p;
     },
     { passive: false },
@@ -472,6 +495,7 @@ export function attachMapTouch(canvas: HTMLCanvasElement, state: AppState, rende
     if (!t) return;
     const p = { x: t.clientX, y: t.clientY };
     clearTimer();
+    follow(null);
     const mode = g.mode;
     const fromHold = g.fromHold;
     g = null;

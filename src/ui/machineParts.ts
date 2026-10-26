@@ -162,7 +162,7 @@ export function clockPanel(state: AppState, m: PlacedMachine, def: MachineDef, f
     const s = slots.find((x) => x.itemId === itemId);
     if (!s) return '';
     if (s.kind === 'belt') return '#ffffff';
-    return pipeOutColor(def, s.key) ?? '#5bc0ff';
+    return pipeOutColor(def, s.key, m.mode) ?? '#5bc0ff';
   };
 
   return el(
@@ -330,7 +330,7 @@ export function layoutPanel(state: AppState, m: PlacedMachine, def: MachineDef, 
     // điện thoại (`rates`): mũi tên cổng kích hoạt xanh / đỏ theo đồng hồ chất kích hoạt (người dùng 2026-10-05)
     const act = activator ? state.result.machines.get(m.uid)?.activator : undefined;
     const actOk = (act?.factor ?? 0) >= 1 - 1e-6;
-    const color = activator ? (opts.rates ? (actOk ? '#57ab5a' : '#e5534b') : '#c77dff') : (pipeOutColor(def, p.key) ?? '#ffffff');
+    const color = activator ? (opts.rates ? (actOk ? '#57ab5a' : '#e5534b') : '#c77dff') : (pipeOutColor(def, p.key, probe.mode) ?? '#ffffff');
     const glyph =
       p.kind === 'pipe'
         ? `<path d="M4 17 L12 6 L20 17 Z" fill="${color}" stroke="rgba(0,0,0,.6)" stroke-width="1"/>`
@@ -787,7 +787,6 @@ export function recipeCard(state: AppState, r: RecipeDef, count: number, side?: 
       el('div', { class: 'rc-rate' }, perMin(n)),
     );
   const card = el('div', { class: `recipe-card${r.limited ? ' limited' : ''}` });
-  if (r.limited) card.append(limitedBadge());
   // thẻ môi trường: Stable ENV = môi trường trơ (xanh), Acrid ENV = môi trường axit (**vàng** —
   // người dùng 2026-09-29); tên "Acrid" theo game, dữ liệu gọi là `Acid`
   if (r.catalystEnv !== 'None')
@@ -819,8 +818,9 @@ export function recipeCard(state: AppState, r: RecipeDef, count: number, side?: 
               ),
             ]),
       ),
-      // cột phải: ô tích nằm **sát phải, ngay trên** thời gian chạy
-      el('div', { class: 'rc-side' }, side ?? null, el('div', { class: 'rc-time' }, `${fmt(r.seconds, 2)}s`)),
+      // cột phải: ô tích nằm **sát phải, ngay trên** thời gian chạy; thẻ LIMITED **giữa** ô tích và thời gian (người dùng
+      // 2026-10-26 — trước đây nằm đè góc trên phải, che mất ô tích)
+      el('div', { class: 'rc-side' }, side ?? null, r.limited ? limitedBadge() : null, el('div', { class: 'rc-time' }, `${fmt(r.seconds, 2)}s`)),
     ),
   );
   return card;

@@ -8,6 +8,7 @@ import {
   enterTool,
   startCopy,
   startGroup,
+  togglePowerCheck,
   startMove,
   toggleLabels,
   toggleLayer,
@@ -490,11 +491,9 @@ export function mountDock(root: HTMLElement, state: AppState, renderer: Renderer
               state.bp.enforcePower !== false
                 ? tr('Kiểm tra tầm điện: BẬT — máy ngoài tầm cột/trụ không chạy. Bấm để tắt khi đang phác thảo')
                 : tr('Kiểm tra tầm điện: TẮT — bấm để bật'),
+            key: keyLabel('map.power'),
             active: state.bp.enforcePower !== false,
-            onClick: () =>
-              state.mutate(tr('Đổi kiểm tra điện'), () => {
-                state.bp.enforcePower = state.bp.enforcePower === false;
-              }),
+            onClick: () => togglePowerCheck(state),
           },
           svg(ICON.power),
         ),

@@ -235,7 +235,10 @@ export class BeltPath {
     const def = owner ? this.ds.machines.get(owner.machineId) : undefined;
     const d = dirTo(prev, c);
     if (!owner || !def || d === null) return this.hitObstacle(tr('Không bắt đầu được ở đây'));
-    const port = worldPorts(owner, def).find((p) => p.dir === 'out' && p.kind === this.kind && (p.virtual || (same(p.attach, c) && p.flow === d)));
+    // có cổng ra thật ⇒ chỉ ra qua đúng cổng đó; cổng `virtual` chỉ khi máy không có cổng ra thật cùng loại (2026-10-26)
+    const outs = worldPorts(owner, def).filter((p) => p.dir === 'out' && p.kind === this.kind);
+    const real = outs.some((p) => !p.virtual);
+    const port = outs.find((p) => (real ? !p.virtual && same(p.attach, c) && p.flow === d : p.virtual));
     const kind = this.classify(c, d);
     if (!port || !kind || kind === 'bridge') {
       this.waitMachine = null;

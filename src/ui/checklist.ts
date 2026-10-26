@@ -1,4 +1,4 @@
-import { matchesKey } from '../keybinds';
+import { matches as keyMatches, matchesKey } from '../keybinds';
 import { hotkeyOf } from '../editor/keys';
 import type { AppState } from '../editor/state';
 import type { TabManager } from '../editor/tabs';
@@ -714,7 +714,12 @@ export function mountChecklist(app: HTMLElement, state: AppState, tabs: TabManag
     fx.tick.clear();
     fx.done.clear();
   };
-  /** Ẩn ⇄ Mở: bảng nở ra từ nút (góc dưới trái) / thu về nút. */
+  /**
+   * Ẩn ⇄ Mở — **như thanh điều khiển mô phỏng** (người dùng 2026-10-26): bảng phóng ra từ **tâm nút** checklist (co giãn
+   * đều, mờ → rõ, hơi nảy) và thu nhỏ dần vào tâm nút ẩn rồi biến mất. Trước đó bảng co méo về góc dưới trái thành một ô
+   * 38 px ⇒ trông như đóng mở ở góc màn hình chứ không phải từ nút.
+   */
+  const originAt = (r: DOMRect, p: DOMRect): string => `${r.left + r.width / 2 - p.left}px ${r.top + r.height / 2 - p.top}px`;
   const setMode = (m: 'hidden' | 'open'): void => {
     if (m === mode) return;
     mode = m;
@@ -722,16 +727,17 @@ export function mountChecklist(app: HTMLElement, state: AppState, tabs: TabManag
       // điện thoại dọc: bảng chọn máy đang mở chiếm nửa màn ⇒ thu lại (mỗi lúc một bảng, như các bảng khác)
       if (portrait() && !app.classList.contains('palette-collapsed') && !app.classList.contains('palette-hidden')) window.dispatchEvent(new Event('efp:toggle-palette'));
       place();
+      const f = fab.getBoundingClientRect(); // đo **trước** khi ẩn nút
       panel.hidden = false;
       fab.hidden = true;
       smallList = null;
       drawBar();
       drawBody();
-      const f = fab.getBoundingClientRect();
       const p = panel.getBoundingClientRect();
-      if (motion() && p.width > 0)
-        panel.animate([{ transform: `scale(${38 / p.width}, ${38 / p.height})`, opacity: 0.4, borderRadius: '9px' }, { transform: 'none', opacity: 1 }], { duration: 260, easing: EASE });
-      void f;
+      if (motion() && p.width > 0 && f.width > 0) {
+        panel.style.transformOrigin = originAt(f, p);
+        panel.animate([{ transform: 'scale(0.04)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1.05)' });
+      }
       return;
     }
     const p = panel.getBoundingClientRect();
@@ -739,11 +745,20 @@ export function mountChecklist(app: HTMLElement, state: AppState, tabs: TabManag
       if (mode !== 'hidden' || panel.hidden) return;
       panel.hidden = true;
       fab.hidden = false;
-      if (motion()) fab.animate([{ transform: 'scale(0.85)', opacity: 0.5 }, { transform: 'none', opacity: 1 }], { duration: 160, easing: 'ease-out' });
     };
-    if (!motion() || p.width === 0) return end();
-    panel.animate([{ transform: 'none', opacity: 1 }, { transform: `scale(${38 / p.width}, ${38 / p.height})`, opacity: 0.3, borderRadius: '9px' }], { duration: 200, easing: 'ease-in' }).onfinish = end;
-    setTimeout(end, 260);
+    const hide = panel.querySelector('.cl-hide');
+    const h = hide?.getBoundingClientRect();
+    if (!motion() || p.width === 0 || !h || h.width === 0) return end();
+    panel.style.transformOrigin = originAt(h, p);
+    const an = panel.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0.04)', opacity: 0 }], { duration: 260, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+    an.onfinish = () => {
+      end();
+      an.cancel();
+    };
+    setTimeout(() => {
+      end();
+      an.cancel();
+    }, 320);
   };
   fab.addEventListener('click', () => setMode('open'));
 
@@ -874,7 +889,7 @@ export function mountChecklist(app: HTMLElement, state: AppState, tabs: TabManag
     if (mode === 'open' && !source) refresh();
   });
   /**
-   * **Ctrl** mở / đóng checklist (người dùng 2026-10-13) — hai cách cùng lúc: bấm nhả nhanh ⇒ bật / tắt; giữ quá 0,3 s ⇒
+   * **Shift** (trước 2026-10-26 là Ctrl — trùng nhiều tổ hợp quá) mở / đóng checklist (người dùng 2026-10-13) — hai cách cùng lúc: bấm nhả nhanh ⇒ bật / tắt; giữ quá 0,3 s ⇒
    * mở trong lúc giữ, nhả ra thì đóng (vẫn bấm chuột vào bảng được khi đang giữ). Đang giữ Ctrl mà bấm phím khác (Ctrl+Z…)
    * ⇒ checklist bỏ qua lần này tới khi nhả Ctrl (mở do giữ thì đóng lại).
    */
@@ -884,7 +899,8 @@ export function mountChecklist(app: HTMLElement, state: AppState, tabs: TabManag
     ctrl = null;
   };
   window.addEventListener('keydown', (e) => {
-    if (matchesKey('checklist', hotkeyOf(e))) {
+    // `keyMatches` (không phải `matchesKey`): Shift bấm khi đang giữ Ctrl / Alt (Ctrl+Shift+Z…) không phải checklist
+    if (matchesKey('checklist', hotkeyOf(e)) && (ctrl || keyMatches('checklist', e))) {
       if (e.repeat || ctrl) return;
       if (document.body.classList.contains('modal-open') || fab.style.visibility === 'hidden') return;
       // mở **ngay** khi bấm (người dùng 2026-10-13), nhả ra mới quyết định có đóng không

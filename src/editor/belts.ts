@@ -9,6 +9,7 @@ import {
   type WorldPort,
 } from '../model/geometry';
 import { beltAt } from '../model/network';
+import { ACTIVATOR } from '../modeler/doc';
 import type {
   BeltTile,
   Blueprint,
@@ -147,6 +148,11 @@ export function resolveStarts(
   let ports = ctx.ports.filter((p) => p.dir === 'out' && p.kind === kind);
   if (spec.type === 'port') ports = ports.filter((p) => p.key === spec.key);
   else {
+    // có cổng ra **thật** ⇒ ống / băng mới đi ra từ đúng cổng đó, đúng hướng; cổng `virtual` (ra mặt nào cũng được — để
+    // đẩy thẳng vào máy kề bên) chỉ dùng khi máy không có cổng ra thật cùng loại (Giàn Khai Thác). Người dùng 2026-10-26:
+    // Cửa Xả Ống Dẫn nối ống ra từ mặt gần con trỏ nhất thay vì đúng đầu ra — Máy Bơm, Máy Tách Khí, Ống Dẫn Dòng Ra
+    // cũng vậy.
+    if (ports.some((p) => !p.virtual)) ports = ports.filter((p) => !p.virtual);
     // thân máy: ưu tiên cổng đang thực sự đẩy vật tư ra theo công thức
     const bound = ports.filter((p) => itemAt(ctx.m, p.key));
     if (bound.length > 0) ports = bound;
@@ -207,11 +213,23 @@ export function resolveGoals(
     : ports.find((p) => !p.virtual && p.cell.x === cursor.x && p.cell.z === cursor.z);
   if (exact) ports = [exact];
   else {
-    ports = ports.filter((p) => p.key !== ctx.def.activatorPort);
+    // cổng kích hoạt (người dùng 2026-10-26: bấm ô nào của máy cũng nối thông minh, kể cả cổng kích hoạt): chỉ nhắm khi
+    // ống đang chở **đúng chất kích hoạt** của máy, hoặc máy không còn cổng vào nào khác nối được (Máy Khuếch Tán chỉ
+    // có cổng kích hoạt). Chưa biết chất đang chở ⇒ vẫn tránh cổng kích hoạt — nạp nhầm chất vào đó là lỗi khó thấy.
+    if (ports.some((p) => !p.virtual)) ports = ports.filter((p) => !p.virtual);
+    const actPort = ctx.def.activatorPort ? ports.find((p) => p.key === ctx.def.activatorPort) : undefined;
+    const actItems = ACTIVATOR[ctx.def.id] ?? [];
+    ports = ports.filter((p) => p !== actPort);
     if (opts.itemId) {
       const match = ports.filter((p) => itemAt(ctx.m, p.key) === opts.itemId);
       if (match.length > 0) ports = match;
     }
+    if (actPort && opts.itemId && actItems.includes(opts.itemId)) {
+      // chất đang chở là chất kích hoạt: có cổng thường **đang nhận đúng chất này** theo công thức thì xét cả hai (đường
+      // ngắn hơn thắng), không thì chỉ cổng kích hoạt
+      const bound = ports.filter((p) => itemAt(ctx.m, p.key) === opts.itemId);
+      ports = [...bound, actPort];
+    } else if (actPort && !ports.some((p) => p.virtual || usable(p.attach))) ports = [actPort];
   }
 
   const goals: BeltGoal<GoalTag>[] = [];
@@ -266,10 +284,18 @@ export function specAt(bp: Blueprint, ds: Dataset, cell: Cell, kind: PortKind): 
 }
 
 /** Vật tư mà đoạn băng sắp đặt sẽ chở, suy từ điểm đầu. */
-function carriedItem(bp: Blueprint, spec: StartSpec): string | null {
+function carriedItem(bp: Blueprint, ds: Dataset, spec: StartSpec, kind: PortKind): string | null {
   if (spec.type === 'port') {
     const m = bp.machines.find((v) => v.uid === spec.uid);
     return m ? itemAt(m, spec.key) : null;
+  }
+  // bắt đầu từ thân máy: mọi cổng ra cùng loại đang đẩy **một** chất duy nhất ⇒ đó là chất đang chở (2026-10-26 — để
+  // nhắm đúng cổng kích hoạt / cổng nhận chất đó ở máy đích)
+  if (spec.type === 'machine') {
+    const ctx = machineCtx(bp, ds, spec.uid);
+    if (!ctx) return null;
+    const items = new Set(ctx.ports.filter((p) => p.dir === 'out' && p.kind === kind).map((p) => itemAt(ctx.m, p.key)).filter((x): x is string => !!x));
+    return items.size === 1 ? [...items][0]! : null;
   }
   return null;
 }
@@ -291,7 +317,7 @@ export function planBelt(
 ): BeltPlan {
   const starts = resolveStarts(bp, ds, spec, kind);
   const replacing = starts[0]?.tag?.replace;
-  const goals = resolveGoals(bp, ds, cursor, kind, { itemId: carriedItem(bp, spec), replacing });
+  const goals = resolveGoals(bp, ds, cursor, kind, { itemId: carriedItem(bp, ds, spec, kind), replacing });
 
   const fail = (reason: string): BeltPlan => {
     const s0 = starts[0] ?? { cell: 'x' in spec ? { x: spec.x, z: spec.z } : cursor, inDir: null };

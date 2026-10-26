@@ -873,6 +873,9 @@ export const en: Locale = {
       'Power range check: OFF — click to turn on',
     'Đổi kiểm tra điện':
       'Toggle power check',
+    'Kiểm tra tầm điện: BẬT': 'Power range check: ON',
+    'Kiểm tra tầm điện: TẮT': 'Power range check: OFF',
+    'Bật / tắt kiểm tra tầm điện': 'Toggle power range check',
     'Bản vẽ — thư viện bản vẽ đã lưu, nhập / xuất':
       'Blueprints — saved blueprint library, import / export',
     '{0}×{1} = {2} ô':

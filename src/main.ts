@@ -528,6 +528,13 @@ const observer = new ResizeObserver(() => {
     fitted = true;
   }
   redraw('view');
+  // đổi cỡ canvas = trình duyệt xoá trắng nó; hẹn vẽ ở khung sau thì khung này lên màn hình **trống** ⇒ suốt lúc bảng chọn
+  // máy / thanh bên trượt ra vào (mỗi khung một lần đổi cỡ) màn hình đen (người dùng 2026-10-26). ResizeObserver chạy
+  // sau bố cục, trước khi vẽ lên màn hình ⇒ vẽ ngay tại đây.
+  if (changed) {
+    drawPending = false;
+    renderer.draw();
+  }
 });
 observer.observe(canvas);
 

@@ -67,6 +67,7 @@ import { kbdBelow } from '../ui/shortcutBadges';
 import { limitedBadge } from '../ui/limited';
 import { hotkeyOf } from '../editor/keys';
 import { autoFocus, isTouchUI } from '../platform';
+import { edgeVelocityIn } from '../editor/edgePan';
 
 /** Bỏ dấu tiếng Việt để tìm máy / vật phẩm gõ không dấu. */
 const fold = (s: string): string =>
@@ -1829,6 +1830,42 @@ export function mountModeler(root: HTMLElement, deps: ModelerDeps): () => void {
     }
   };
 
+  /**
+   * Tự cuộn sát mép (người dùng 2026-10-26 — `editor/edgePan.ts`): đang dời máy (kéo, hoặc M / máy mới chờ đặt) hay đang
+   * kéo khung chọn mà con trỏ vào sát mép khung nhìn ⇒ sơ đồ trôi chậm về phía đó; máy / khung bám theo con trỏ đứng yên.
+   */
+  let edgeRaf = 0;
+  let edgeLast = 0;
+  const edgeActive = (): boolean => !!lastMouse && (drag?.kind === 'node' || (drag?.kind === 'box' && drag.moved) || (!!moving && !drag));
+  const edgeTick = (now: number): void => {
+    if (!edgeActive() || !lastMouse || !viewport.isConnected) {
+      edgeRaf = 0;
+      return;
+    }
+    edgeRaf = requestAnimationFrame(edgeTick);
+    const dt = edgeLast ? Math.min(0.05, (now - edgeLast) / 1000) : 0;
+    edgeLast = now;
+    const v = dt > 0 ? edgeVelocityIn(viewport, lastMouse, isTouchUI()) : null;
+    if (!v) return;
+    const dx = v.x * dt;
+    const dy = v.y * dt;
+    view.x += dx;
+    view.y += dy;
+    // điểm bắt đầu kéo (toạ độ màn hình) gắn với sơ đồ ⇒ trôi theo
+    if (drag?.kind === 'node' || drag?.kind === 'box') {
+      drag.sx += dx;
+      drag.sy += dy;
+    }
+    applyView();
+    onMove({ clientX: lastMouse.x, clientY: lastMouse.y } as MouseEvent);
+  };
+  const edgeKick = (): void => {
+    if (edgeRaf || !edgeActive()) return;
+    edgeLast = 0;
+    edgeRaf = requestAnimationFrame(edgeTick);
+  };
+  window.addEventListener('mousemove', edgeKick);
+
   const onUp = (e: MouseEvent): void => {
     const d = drag;
     drag = null;
@@ -2659,6 +2696,8 @@ export function mountModeler(root: HTMLElement, deps: ModelerDeps): () => void {
     window.removeEventListener(MODELER_FOCUS_EVENT, onFocus);
     window.removeEventListener(MODELER_INSERT_EVENT, onInsert);
     window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mousemove', edgeKick);
+    if (edgeRaf) cancelAnimationFrame(edgeRaf);
     window.removeEventListener('mouseup', onUp);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('keyup', onKeyUp);

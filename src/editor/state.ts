@@ -31,6 +31,8 @@ export type Tool =
        * vào máy đặt mới — đi đường đặt máy nên tự xoay theo tuyến và thay được ô băng / ống.
        */
       template?: PlacedMachine;
+      /** Đang **nhấc thả** bằng chuột trái / ngón tay (van / cầu kéo một mình) — thả là đặt (`input.ts` `dragPlace`). */
+      drag?: boolean;
     }
   /**
    * Đặt băng chuyền / ống. `start` trống = đang chờ bấm điểm đầu; có `start` = đầu đã

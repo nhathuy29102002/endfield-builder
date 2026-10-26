@@ -30,8 +30,9 @@ import {
   toggleLabels,
   toggleLayer,
   toggleOffSelected,
+  togglePowerCheck,
 } from './tools';
-import { boxSelection, clickTile, emptySelection, selectionSize, subtractSelection, toggleMachine, unionSelection } from './group';
+import { boundsCenter, boxSelection, clickTile, emptySelection, selectionBounds, selectionSize, subtractSelection, toggleMachine, unionSelection } from './group';
 import { beltAt } from '../model/network';
 import type { AppState, Tool } from './state';
 import type { Selection } from './group';
@@ -42,9 +43,10 @@ import { cellKey } from '../model/geometry';
 import { tr } from '../i18n';
 import { isTouchUI } from '../platform';
 import { nextInFamily } from './logistics';
+import { edgeVelocityIn } from './edgePan';
 import { showHoldRing, type HoldRing } from '../ui/holdRing';
 import { enterSimMode, exitSimMode, isSimulating, simTogglePlay } from '../ui/simMode';
-import { actionOf, isModifierKey, matchesKey, type ActionDef } from '../keybinds';
+import { actionOf, isModifierKey, matches, matchesKey, type ActionDef } from '../keybinds';
 
 const ROTS: Facing[] = [0, 90, 180, 270];
 
@@ -117,6 +119,14 @@ function skipAction(a: ActionDef, sim: boolean): boolean {
  * Mỗi công cụ chỉ xử lý đúng ý nghĩa của nó; phần pan/zoom nằm chung vì người dùng
  * cần di chuyển khung nhìn ở mọi công cụ.
  */
+/**
+ * Phím tắt vẫn chạy khi đang nhấc máy / nhóm bằng chuột trái (người dùng 2026-10-26) — mọi phím khác huỷ lần nhấc.
+ * Xoá / Tab có cách xử lý riêng lúc nhấc (xoá máy đang nhấc / bật tắt máy đang nhấc). Di chuyển bản đồ (W A S D) cũng được.
+ */
+const LIFT_KEYS = new Set(['map.rotate', 'map.mode', 'map.labels', 'map.power', 'map.layer', 'map.delete', 'map.erase', 'map.camRot', 'map.camRotBack', 'map.toggleOff']);
+/** Phím nhóm Chung đóng / mở cửa sổ (bảng chọn máy, cửa sổ máy, tổng hợp; checklist là Shift — phím bổ trợ). */
+const LIFT_GENERAL = ['palette', 'machineWin', 'summary', 'checklist', 'showKeys'];
+
 export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer: Renderer): InputHandle {
   let panning = false;
   let painting = false;
@@ -283,17 +293,27 @@ export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer
     // xoay theo chiều tuyến, thả xuống thì thay ô tuyến đó (nhóm không làm được hai việc này)
     const mdef = state.ds.machines.get(m.machineId);
     const alone = !state.sel.machines.has(m.uid) || (state.sel.machines.size === 1 && state.sel.tiles.size === 0);
+    // chọn **không phát tín hiệu** — tín hiệu phát một lần khi đổi công cụ ngay sau, cửa sổ máy khỏi mở ra rồi lại thu
+    // (người dùng 2026-10-26)
+    const quietSelect = (uid: number): void => {
+      state.sel = emptySelection();
+      state.sel.machines.add(uid);
+    };
     if (mdef?.router && alone) {
-      state.select(m.uid);
+      quietSelect(m.uid);
       startMove(state, renderer, m.uid);
+      if (state.tool.kind === 'place') state.setTool({ ...state.tool, drag: true });
       dragPlace = true;
       updateGhost();
       state.emit('view');
       return;
     }
     // máy nằm trong nhóm đang chọn ⇒ kéo cả nhóm; chưa chọn ⇒ chọn riêng nó rồi kéo
-    if (!state.sel.machines.has(m.uid)) state.select(m.uid);
-    startGroup(state, renderer, 'move', cell);
+    if (!state.sel.machines.has(m.uid)) quietSelect(m.uid);
+    // nhấc **một** máy (người dùng 2026-10-26): tâm máy về ngay con trỏ ⇒ xoay quanh chỗ con trỏ, máy không văng ra xa.
+    // Nhóm nhiều máy giữ chỗ cầm như cũ.
+    const one = state.sel.machines.size === 1 && state.sel.tiles.size === 0 ? selectionBounds(state.bp, state.ds, state.sel) : null;
+    startGroup(state, renderer, 'move', one ? boundsCenter(one) : cell);
     updateGhost();
     state.emit('view');
   };
@@ -325,6 +345,27 @@ export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer
     startGroup(state, renderer, 'move', cell);
     updateGhost();
     state.emit('view');
+  };
+
+  /** Con trỏ chuột mới nhất (cả ngoài canvas) — cho tự cuộn sát mép (`edgePan.ts`). */
+  let edgeMouse: MouseEvent | null = null;
+  /** Cảm ứng (`touchMap.ts`): điểm ngón tay đang rê preview / khung chọn + việc phải làm lại sau mỗi lần bản đồ trôi. */
+  let edgeTouch: { x: number; y: number; after: () => void } | null = null;
+  /**
+   * Tự cuộn sát mép (người dùng 2026-10-26) bằng chuột: đang cầm preview máy / nhóm / bản vẽ (cả lúc nhấc thả; không khi
+   * đang giữ chuột phải xoay hay đang kéo bản đồ), hoặc đang kéo khung chọn / khung bỏ chọn.
+   */
+  const edgeMouseActive = (): boolean => {
+    if (lock || panning || spaceDown) return false;
+    if (boxing || rboxing) return true;
+    const k = state.tool.kind;
+    return k === 'place' || k === 'group' || k === 'stamp';
+  };
+  /** Bản đồ vừa trôi dưới con trỏ đứng yên ⇒ preview / khung chọn bám theo ô mới dưới con trỏ. */
+  const afterEdgeMouse = (e: MouseEvent): void => {
+    updateHover(e);
+    const c = renderer.hover.cell;
+    if (c && renderer.box && (boxing || rboxing)) renderer.box = { a: renderer.box.a, b: c };
   };
 
   /** Đang nhấc máy / nhóm bằng **chuột trái** (giữ đủ vòng đếm, hoặc kéo van) — nhả chuột là đặt. */
@@ -366,6 +407,12 @@ export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer
     if (moved || (tool.kind === 'link' && !renderer.preview && tool.start)) refreshPreview(state, renderer, cell);
     updateGhost();
   };
+
+  // con trỏ ra khỏi cửa sổ trình duyệt ⇒ thôi tự cuộn (không thì bản đồ trôi mãi theo chỗ con trỏ lúc rời đi)
+  document.addEventListener('mouseout', (e) => {
+    if (!e.relatedTarget) edgeMouse = null;
+  });
+  window.addEventListener('blur', () => (edgeMouse = null));
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -536,6 +583,7 @@ export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer
 
   window.addEventListener('mousemove', (e) => {
     if (fromTouch(e)) return;
+    edgeMouse = e;
     const p = localPoint(e);
     if (lock) {
       // đang giữ chuột phải: preview đứng yên, hướng máy theo hướng rê (quy về hệ bản vẽ
@@ -739,15 +787,31 @@ export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer
     const act = actionOf(e, ['map', 'general'], (a) => skipAction(a, sim));
 
     // Đang giữ chuột trái (vòng đếm) hoặc đang nhấc máy / nhóm bằng chuột trái (người dùng 2026-10-11): bấm phím khác ⇒ huỷ,
-    // máy về chỗ cũ. Được phép: xoay (R), đổi chế độ (Space) và phím bổ trợ.
+    // máy về chỗ cũ. Được phép (người dùng 2026-10-26): phím bổ trợ và các phím tắt "xem / cửa sổ / máy đang nhấc" —
+    // `LIFT_KEYS` + phím của nhóm Chung đóng mở cửa sổ (`LIFT_GENERAL`, do `main.ts` / checklist lo).
     if (!injected && (ring || lifting())) {
       const modifier = isModifierKey(key);
+      const generalWin = LIFT_GENERAL.some((id) => matches(id, e));
       if (ring && !modifier) {
         clearHold();
         press = null;
-      } else if (lifting() && !modifier && act !== 'map.rotate' && act !== 'map.mode') {
+      } else if (lifting() && !modifier && !generalWin && !(act && (LIFT_KEYS.has(act) || MOVE_DIRS[act]))) {
         e.preventDefault();
         cancelLift();
+        return;
+      }
+      // xoá máy / nhóm đang nhấc: thả về chỗ cũ (bản vẽ chưa đổi) rồi xoá — một bước hoàn tác như xoá thường
+      if (lifting() && (act === 'map.delete' || act === 'map.erase')) {
+        e.preventDefault();
+        if (e.repeat) return;
+        cancelLift();
+        deleteSelected(state, renderer);
+        return;
+      }
+      // Tab khi đang nhấc: bật / tắt máy đang nhấc (không phải đổi loại van / cầu)
+      if (lifting() && act === 'map.toggleOff') {
+        e.preventDefault();
+        if (!e.repeat) toggleOffSelected(state);
         return;
       }
     }
@@ -892,6 +956,9 @@ export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer
       case 'map.labels':
         toggleLabels(state, renderer);
         break;
+      case 'map.power':
+        if (!e.repeat) togglePowerCheck(state);
+        break;
       case 'map.copy':
         // C = sao chép, preview bám con trỏ để đặt ngay (Ctrl+C mới là chép vào bộ nhớ tạm — người
         // dùng 2026-09-29 đảo lại)
@@ -946,6 +1013,8 @@ export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer
           break;
         }
         if (state.tool.kind === 'select') toggleOffSelected(state);
+        // máy mới cầm từ bảng chọn máy: chưa có máy nào để bật / tắt ⇒ Tab = đổi chế độ (người dùng 2026-10-26)
+        else if (state.tool.kind === 'place' && (state.tool.mode ?? 'new') === 'new') switchMode();
         else state.notify(tr('Đổi chế độ máy đang cầm: bấm Space'));
         break;
       }
@@ -1083,12 +1152,31 @@ export function attachInput(canvas: HTMLCanvasElement, state: AppState, renderer
         vx += h.v[0];
         vy += h.v[1];
       }
-      if (vx === 0 && vy === 0) return false;
-      const len = Math.hypot(vx, vy); // đi chéo không nhanh hơn đi thẳng
-      const step = PAN_SPEED * dt;
-      renderer.camera.pan((-vx / len) * step, (-vy / len) * step);
-      if (lastMouse) updateHover(lastMouse);
-      return true;
+      let moved = false;
+      if (vx !== 0 || vy !== 0) {
+        const len = Math.hypot(vx, vy); // đi chéo không nhanh hơn đi thẳng
+        const step = PAN_SPEED * dt;
+        renderer.camera.pan((-vx / len) * step, (-vy / len) * step);
+        if (lastMouse) updateHover(lastMouse);
+        moved = true;
+      }
+      // tự cuộn sát mép: ngón tay (điện thoại) hoặc chuột
+      const touchUI = isTouchUI();
+      const ep = edgeTouch ?? (!touchUI && edgeMouse && edgeMouseActive() ? edgeMouse : null);
+      if (ep) {
+        const pt = 'clientX' in ep ? { x: ep.clientX, y: ep.clientY } : ep;
+        const v = edgeVelocityIn(canvas, pt, touchUI || !!edgeTouch);
+        if (v) {
+          renderer.camera.pan(v.x * dt, v.y * dt);
+          if ('clientX' in ep) afterEdgeMouse(ep);
+          else ep.after();
+          moved = true;
+        }
+      }
+      return moved;
+    },
+    edgeFollow(p: { x: number; y: number; after: () => void } | null): void {
+      edgeTouch = p;
     },
     refreshHover(): void {
       if (lastMouse) updateHover(lastMouse);
@@ -1146,6 +1234,11 @@ export interface InputHandle {
    * đường xử lý của chuột trái. `sel` = vùng chọn mới sau khi đặt nhóm (bản sao vừa đặt).
    */
   commitHere(): CommitResult;
+  /**
+   * Cảm ứng: ngón tay đang rê preview / khung chọn ở `p` (toạ độ màn hình) ⇒ sát mép phần bản đồ còn thấy thì bản đồ tự
+   * trôi, mỗi lần trôi gọi `after` để preview / khung bám theo ngón tay; `null` = thôi.
+   */
+  edgeFollow(p: { x: number; y: number; after: () => void } | null): void;
 }
 
 function applyTerrain(
